@@ -1,0 +1,36 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+dist/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+
+# Coverage reports
+coverage/
+*.lcov
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# MCP and Claude local configs
+.mcp.json
+CLAUDE.local.md
+
+# IDEs
+.vscode/
+.idea/
+
+# Docker volumes
+postgres-data/
+redis-data/
