@@ -1,5 +1,9 @@
 # AutoSDLC Documentation
 
+<div align="center">
+  <img src="../public/images/AutoSDLC_Logo.svg" alt="AutoSDLC Logo" width="150">
+</div>
+
 Welcome to the comprehensive documentation for AutoSDLC (Autonomous Software Development Lifecycle) - an AI-powered system that orchestrates specialized agents to automate the entire software development process.
 
 ## 📖 Documentation Overview

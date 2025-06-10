@@ -1,5 +1,11 @@
 # AutoSDLC Implementation
 
+<div align="center">
+  <img src="public/images/AutoSDLC_Logo.svg" alt="AutoSDLC Logo" width="200">
+  <h1>AutoSDLC</h1>
+  <p><strong>Autonomous Software Development Lifecycle</strong></p>
+</div>
+
 **Autonomous Software Development Lifecycle** - AI-powered development agent system
 
 ## 🎯 Project Status
