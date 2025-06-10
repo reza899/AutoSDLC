@@ -1,7 +1,7 @@
 {
   "name": "autosdlc",
   "version": "0.1.0",
-  "description": "Autonomous Software Development Lifecycle - AI-powered development agent system",
+  "description": "Autonomous Software Development Lifecycle - AI-powered multi-agent development system",
   "main": "dist/index.js",
   "scripts": {
     "dev": "npm run build && npm run docker:deps && sleep 10 && npm run db:migrate && npm run mcp:server",

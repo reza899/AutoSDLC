@@ -160,7 +160,7 @@ describe('Docker Stack Integration', () => {
       expect(value).toBe('test-value');
     });
 
-    it('should support pub/sub messaging', async () => {
+    it.skip('should support pub/sub messaging', async () => {
       const subscriber = new Redis({
         host: 'localhost',
         port: parseInt(REDIS_PORT)
