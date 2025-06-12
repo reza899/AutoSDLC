@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="../public/images/AutoSDLC_Logo.svg" alt="AutoSDLC Logo" width="150">
+</div>
+
 # AutoSDLC System Overview
 
 #AutoSDLC #Core #Architecture #Overview
