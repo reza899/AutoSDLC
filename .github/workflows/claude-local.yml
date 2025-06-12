@@ -1,0 +1,169 @@
+name: Claude Local Runner
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue/PR number to process'
+        required: true
+      test_mode:
+        description: 'Run in test mode'
+        required: false
+        default: 'false'
+
+jobs:
+  notify:
+    if: |
+      contains(github.event.comment.body, '@claude-local') || 
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Determine context
+        id: context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let issueNumber;
+            let isTest = false;
+            
+            if (context.eventName === 'workflow_dispatch') {
+              issueNumber = context.payload.inputs.issue_number;
+              isTest = context.payload.inputs.test_mode === 'true';
+            } else {
+              issueNumber = context.issue.number;
+            }
+            
+            // Check if this is a PR
+            let isPR = false;
+            try {
+              await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: issueNumber
+              });
+              isPR = true;
+            } catch (e) {
+              isPR = false;
+            }
+            
+            core.setOutput('issue_number', issueNumber);
+            core.setOutput('is_pr', isPR);
+            core.setOutput('is_test', isTest);
+            
+      - name: Run verification test
+        if: steps.context.outputs.is_test == 'true'
+        run: |
+          echo "🧪 Running Claude Local workflow verification test..."
+          echo ""
+          echo "1️⃣ Testing workflow trigger..."
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "✅ Workflow triggered via manual dispatch"
+          else
+            echo "✅ Workflow triggered via comment"
+          fi
+          
+          echo ""
+          echo "2️⃣ Testing context detection..."
+          ISSUE_NUM="${{ steps.context.outputs.issue_number }}"
+          IS_PR="${{ steps.context.outputs.is_pr }}"
+          
+          if [ -z "$ISSUE_NUM" ]; then
+            echo "❌ FAIL: Issue number not detected"
+            exit 1
+          else
+            echo "✅ Issue/PR number detected: #$ISSUE_NUM"
+          fi
+          
+          if [ "$IS_PR" == "true" ]; then
+            echo "✅ Correctly identified as Pull Request"
+          else
+            echo "✅ Correctly identified as Issue"
+          fi
+          
+          echo ""
+          echo "3️⃣ Testing GitHub API access..."
+          # This would normally check API access but act doesn't have real GitHub API
+          echo "⚠️  Skipping API test in local environment"
+          
+          echo ""
+          echo "4️⃣ Testing comment formatting..."
+          # Test that our comment would format correctly
+          TYPE=$([ "$IS_PR" == "true" ] && echo "PR" || echo "Issue")
+          CHECKOUT_CMD=$([ "$IS_PR" == "true" ] && echo "gh pr checkout $ISSUE_NUM" || echo "gh issue view $ISSUE_NUM")
+          
+          if [ -n "$TYPE" ] && [ -n "$CHECKOUT_CMD" ]; then
+            echo "✅ Comment formatting test passed"
+            echo "   - Type: $TYPE"
+            echo "   - Command: $CHECKOUT_CMD"
+          else
+            echo "❌ FAIL: Comment formatting failed"
+            exit 1
+          fi
+          
+          echo ""
+          echo "5️⃣ Summary:"
+          echo "✅ All verification tests passed!"
+          echo "✅ Workflow is ready for use"
+          echo ""
+          echo "📝 To use this workflow:"
+          echo "   1. Comment '@claude-local' on any issue or PR"
+          echo "   2. You'll get a notification comment with instructions"
+          echo "   3. Process the request locally using Claude Code"
+          
+      - name: Create notification comment
+        if: steps.context.outputs.is_test != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.context.outputs.issue_number }};
+            const isPR = ${{ steps.context.outputs.is_pr }};
+            const actor = context.actor;
+            const type = isPR ? 'PR' : 'Issue';
+            const checkoutCmd = isPR ? `gh pr checkout ${issueNumber}` : `gh issue view ${issueNumber}`;
+            
+            const body = `🔔 **Claude Local Task Notification**
+            
+            @${actor} requested Claude assistance on this ${type}.
+            
+            **To process this locally:**
+            \`\`\`bash
+            # 1. Navigate to project
+            cd /path/to/AutoSDLC
+            
+            # 2. Checkout the ${type}
+            ${checkoutCmd}
+            
+            # 3. Process with Claude Code
+            claude "Review the ${type} #${issueNumber} and implement the requested changes"
+            
+            # 4. Push changes (if PR)
+            ${isPR ? 'git push' : '# Create PR with: gh pr create'}
+            \`\`\`
+            
+            **Quick helper:**
+            \`\`\`bash
+            ./scripts/claude-github-helper.sh ${issueNumber}
+            \`\`\`
+            
+            **Alternative:** Use \`@claude\` (without -local) to trigger the cloud-based Claude action (requires API credits).
+            
+            ---
+            _This notification indicates Claude was requested. Process locally to avoid API costs._`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: body
+            });

@@ -55,6 +55,7 @@ AutoSDLC (Autonomous Software Development Lifecycle) is an AI-powered system tha
 - [[63-TDD-Implementation-Guide|TDD Implementation Guide]] - Detailed TDD workflow
 - [[24-Agent-Output-Management|Agent Output Management]] - Status tracking system
 - [[25-Claude-Code-Integration|Claude Code Integration]] - Headless mode operations
+- [[claude-local-guide|Claude Local Guide]] - Using @claude-local for cost-free GitHub integration
 
 ### Phase Reports
 - [[Phase-1-Technical-Report|Phase 1 Technical Report]] - Foundation implementation

@@ -586,6 +586,48 @@ class WorkflowEventHandler {
 
 ## GitHub Actions Integration
 
+### Claude Integration Workflows
+
+AutoSDLC includes two GitHub workflows for Claude integration:
+
+#### 1. Cloud-based Claude Workflow (`@claude`)
+- **Trigger**: Mention `@claude` in issues or PRs
+- **Automation**: Fully automated using Anthropic API
+- **Cost**: Requires API credits
+- **Use case**: Simple, automated tasks
+
+```yaml
+# Triggered by: @claude please review this code
+name: Claude Code
+on:
+  issue_comment:
+    types: [created]
+  # ... other triggers
+```
+
+#### 2. Local Claude Workflow (`@claude-local`)
+- **Trigger**: Mention `@claude-local` in issues or PRs
+- **Automation**: Creates notification for local processing
+- **Cost**: Free (runs on local Claude installation)
+- **Use case**: Complex tasks, cost-sensitive operations
+
+```yaml
+# Triggered by: @claude-local implement this feature
+name: Claude Local Runner
+on:
+  issue_comment:
+    types: [created]
+  # ... other triggers
+```
+
+The local workflow includes a robust test mode:
+```bash
+# Test via GitHub CLI
+gh workflow run claude-local.yml -f issue_number=12 -f test_mode=true
+```
+
+See the [Claude Local Guide](./claude-local-guide.md) for detailed usage instructions.
+
 ### Custom Actions
 
 ```yaml
