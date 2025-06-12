@@ -28,6 +28,7 @@ export abstract class SimpleBaseAgent {
   protected agentOutputWriter: AgentOutputWriter;
   private status: AgentStatus;
   private running: boolean;
+  private startTime: Date | null = null;
   private currentActivity: { task?: string; progress?: number } = {};
   private actionHistory: Array<{ timestamp: string; action: string; result?: string }> = [];
 
@@ -85,6 +86,7 @@ export abstract class SimpleBaseAgent {
       await this.agentOutputWriter.start();
 
       this.running = true;
+      this.startTime = new Date();
       await this.updateStatus('IDLE', 'Agent started successfully');
 
     } catch (error) {
@@ -177,7 +179,7 @@ export abstract class SimpleBaseAgent {
         recentActions: this.actionHistory.slice(-10), // Last 10 actions
         metrics: {
           tasksCompleted: this.actionHistory.length,
-          uptime: Date.now(),
+          uptime: this.running && this.startTime ? (Date.now() - this.startTime.getTime()) / 1000 : 0, // Uptime in seconds
           errorCount: this.actionHistory.filter(a => a.result?.includes('error')).length
         }
       });

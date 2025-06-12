@@ -13,7 +13,6 @@ export enum AgentType {
   CUSTOMER = 'customer',
   PM = 'pm',
   CODER = 'coder',
-  REVIEWER = 'reviewer',
   CODE_REVIEWER = 'code-reviewer',
   TESTER = 'tester'
 }

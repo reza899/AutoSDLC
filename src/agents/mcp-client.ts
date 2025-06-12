@@ -70,7 +70,8 @@ export class MCPClient {
         throw new Error('No response from server');
       }
     } catch (error) {
-      throw new Error('MCP connection failed: ' + error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`MCP connection failed: ${errorMessage}`);
     }
   }
 

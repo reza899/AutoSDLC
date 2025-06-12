@@ -185,7 +185,6 @@ export abstract class BaseAgent {
    * Create initial Agent_Output.md file
    */
   private async createAgentOutputFile(): Promise<void> {
-    const outputFile = path.join(this.config.workspace, 'Agent_Output.md');
     await this.updateAgentOutputFile();
   }
 
@@ -199,7 +198,7 @@ export abstract class BaseAgent {
     const content = this.generateAgentOutputContent(agentInfo);
     
     try {
-      fs.writeFileSync(outputFile, content, 'utf-8');
+      await fs.promises.writeFile(outputFile, content, 'utf-8');
     } catch (error) {
       console.error('Failed to write Agent_Output.md:', error);
     }

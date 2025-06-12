@@ -58,7 +58,7 @@ export class AgentOutputWriter {
     await this.ensureDirectoryExists(this.config.sharedStatusDir);
 
     // Create initial Agent_Output.md file
-    await this.writeAgentOutputFile();
+    this.writeAgentOutputFile();
     
     // Copy to shared directory
     await this.copyToSharedDirectory();
@@ -99,7 +99,7 @@ export class AgentOutputWriter {
     };
 
     if (this.running) {
-      await this.writeAgentOutputFile();
+      this.writeAgentOutputFile();
       await this.copyToSharedDirectory();
     }
   }
@@ -121,7 +121,7 @@ export class AgentOutputWriter {
   /**
    * Write Agent_Output.md file to workspace
    */
-  private async writeAgentOutputFile(): Promise<void> {
+  private writeAgentOutputFile(): void {
     const outputFile = path.join(this.config.workspace, 'Agent_Output.md');
     const content = this.generateAgentOutputContent();
     
