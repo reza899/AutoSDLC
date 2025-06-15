@@ -5,7 +5,9 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "npm run build && npm run docker:deps && sleep 10 && npm run db:migrate && npm run mcp:server",
-    "build": "tsc",
+    "build": "npm run baml:build && tsc",
+    "baml:build": "baml-cli build",
+    "baml:init": "baml-cli init",
     "test": "docker-compose -f docker-compose.test.yml up -d && jest && docker-compose -f docker-compose.test.yml down",
     "test:watch": "docker-compose -f docker-compose.test.yml up -d && jest --watch",
     "test:coverage": "docker-compose -f docker-compose.test.yml up -d && jest --coverage && docker-compose -f docker-compose.test.yml down",
@@ -35,8 +37,9 @@
   "author": "AutoSDLC Team",
   "license": "MIT",
   "devDependencies": {
+    "@boundaryml/baml-cli": "^0.56.0",
     "@types/express": "^5.0.3",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
     "@types/node-fetch": "^2.6.12",
     "@types/pg": "^8.15.4",
@@ -53,7 +56,9 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@boundaryml/baml": "^0.56.0",
     "@dandeliongold/mcp-time": "^1.2.4",
+    "@octokit/rest": "^22.0.0",
     "dotenv": "^16.3.0",
     "express": "^4.18.0",
     "ioredis": "^5.3.0",

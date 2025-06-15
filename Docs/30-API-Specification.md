@@ -6,7 +6,7 @@
 
 ## Overview
 
-The AutoSDLC API provides a comprehensive interface for managing the autonomous software development system. It offers both REST and GraphQL endpoints for different use cases, with real-time subscriptions for monitoring agent activities and workflow progress.
+The AutoSDLC API provides a comprehensive interface for managing the autonomous software development system. It offers both REST and GraphQL endpoints for different use cases, with real-time subscriptions for monitoring agent activities and workflow progress. All agent interactions use BAML framework for schema-validated, type-safe communication.
 
 ## API Architecture
 

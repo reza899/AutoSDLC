@@ -13,9 +13,10 @@ The Agent Framework is the heart of AutoSDLC, providing the infrastructure for c
 ### Agent Definition
 An **agent** in AutoSDLC is:
 - An autonomous AI entity powered by Claude Code running in headless mode
+- Uses BAML framework for type-safe, schema-validated LLM interactions
 - Acts as both MCP client and server for bidirectional communication
-- Specialized for specific SDLC tasks
-- Capable of independent decision-making
+- Specialized for specific SDLC tasks with structured prompt engineering
+- Capable of independent decision-making with multi-model support
 - Able to collaborate with other agents through shared status files
 - Stateful and persistent with Agent_Output.md for status tracking
 
@@ -36,6 +37,10 @@ abstract class BaseAgent {
   protected type: AgentType;
   protected name: string;
   protected workingDirectory: string;
+  
+  // BAML Integration - Type-safe LLM interactions
+  protected bamlClient: BamlClient;
+  protected schemaValidator: SchemaValidator;
   
   // Communication - Claude as both client and server
   protected mcpClient: MCPClient;

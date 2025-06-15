@@ -127,6 +127,10 @@ class MCPServer {
   async registerAgent(agent: Agent): Promise<string>;
   async handleRequest(request: MCPRequest): Promise<MCPResponse>;
   
+  // BAML Integration - Schema-validated tool execution
+  protected bamlClient: BamlClient;
+  async validateToolParams(toolName: string, params: any): Promise<boolean>;
+  
   // Tool management
   async registerTool(tool: Tool): Promise<void>;
   async executeTool(toolName: string, params: any): Promise<any>;

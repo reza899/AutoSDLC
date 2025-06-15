@@ -6,7 +6,7 @@
 
 ## Overview
 
-This guide provides a comprehensive approach to Test-Driven Development (TDD) in the AutoSDLC system. Our TDD implementation is strict: tests are written first based on product specifications, verified to fail completely, and only then is implementation code written. **No mocks are used** - all tests work with real implementations.
+This guide provides a comprehensive approach to Test-Driven Development (TDD) in the AutoSDLC system. Our TDD implementation is strict: tests are written first based on product specifications, verified to fail completely, and only then is implementation code written. **No mocks are used** - all tests work with real implementations. All agent interactions during TDD use BAML framework for schema-validated, type-safe test specifications and results.
 
 ## TDD Principles in AutoSDLC
 
