@@ -6,6 +6,7 @@
  */
 
 import { AgentStatus, AgentType, AgentConfig, AgentInfo, AgentOutputData } from '../types/agent-types';
+import { BamlClientWrapper, BamlConfig, AgentBamlFunctions } from './baml-client-wrapper';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -15,6 +16,10 @@ export abstract class BaseAgent {
   private running: boolean;
   private startTime: Date;
   private statusUpdateInterval: NodeJS.Timeout | null;
+  
+  // BAML Integration
+  protected bamlClient: BamlClientWrapper;
+  protected bamlFunctions: AgentBamlFunctions;
 
   constructor(config: AgentConfig) {
     this.validateConfig(config);
@@ -23,6 +28,24 @@ export abstract class BaseAgent {
     this.running = false;
     this.startTime = new Date();
     this.statusUpdateInterval = null;
+    
+    // Initialize BAML client
+    const bamlConfig: BamlConfig = {
+      projectRoot: path.resolve(__dirname, '../../'),
+      defaultModel: 'claude-opus',
+      fallbackModels: ['claude-sonnet', 'gpt4', 'gpt3-fast'],
+      temperature: 0.7,
+      maxTokens: 4096,
+      timeout: 30000,
+      retryPolicy: {
+        maxRetries: 3,
+        backoffMultiplier: 2,
+        initialDelayMs: 1000
+      }
+    };
+    
+    this.bamlClient = new BamlClientWrapper(bamlConfig);
+    this.bamlFunctions = new AgentBamlFunctions(this.bamlClient);
   }
 
   /**
@@ -34,6 +57,9 @@ export abstract class BaseAgent {
     }
 
     try {
+      // Initialize BAML client
+      await this.bamlClient.initialize();
+      
       // Create workspace directory structure
       await this.createWorkspace();
       
@@ -126,8 +152,35 @@ export abstract class BaseAgent {
   /**
    * Update agent status and trigger file update
    */
-  protected updateStatus(status: AgentStatus): void {
+  protected async updateStatus(status: AgentStatus): Promise<void> {
     this.status = status;
+    
+    // Validate status update with BAML
+    try {
+      const statusUpdate = {
+        agentId: this.config.name,
+        agentType: this.config.type,
+        status: status,
+        currentTask: this.getCurrentTask(),
+        progress: this.getCurrentProgress(),
+        dependencies: this.getCurrentDependencies(),
+        lastUpdated: new Date().toISOString(),
+        metrics: {
+          tasksCompleted: this.getTasksCompleted(),
+          errorCount: this.getErrorCount(),
+          averageTaskDuration: 0,
+          uptime: Date.now() - this.startTime.getTime(),
+          memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024
+        }
+      };
+      
+      const isValid = await this.bamlFunctions.validateAgentStatus(statusUpdate);
+      if (!isValid) {
+        console.warn('Invalid agent status update detected');
+      }
+    } catch (error) {
+      console.error('BAML status validation failed:', error);
+    }
     
     // Trigger immediate status update
     if (this.running) {

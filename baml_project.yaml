@@ -1,0 +1,57 @@
+# BAML Project Configuration for AutoSDLC
+# This file defines the BAML project settings and structure
+
+name: autosdlc-agents
+version: 0.1.0
+description: Type-safe LLM interactions for AutoSDLC multi-agent system
+
+# BAML source directory
+baml_src: ./baml_src
+
+# Output settings
+output:
+  typescript:
+    target: ./src/generated/baml
+    package_name: "@autosdlc/baml-client"
+  
+# Default LLM settings
+default_client_config:
+  provider: anthropic
+  model: claude-3-opus-20240229
+  temperature: 0.7
+  max_tokens: 4096
+
+# Client configurations for different models
+clients:
+  - name: claude-opus
+    provider: anthropic
+    model: claude-3-opus-20240229
+    temperature: 0.7
+    
+  - name: claude-sonnet
+    provider: anthropic  
+    model: claude-3-sonnet-20240229
+    temperature: 0.5
+    
+  - name: gpt4
+    provider: openai
+    model: gpt-4-turbo-preview
+    temperature: 0.7
+    
+  - name: gpt3-fast
+    provider: openai
+    model: gpt-3.5-turbo
+    temperature: 0.5
+
+# Retry and fallback strategies
+retry_policy:
+  max_retries: 3
+  backoff_multiplier: 2
+  initial_delay: 1000
+
+# Multi-model fallback chain
+fallback_chain:
+  - claude-opus
+  - claude-sonnet
+  - gpt4
+  - gpt3-fast

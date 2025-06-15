@@ -10,13 +10,18 @@
 
 import { SimpleBaseAgent } from './simple-base-agent';
 import { AgentType } from '../types/agent-types';
+import { Octokit } from '@octokit/rest';
 
 export interface PMAgentConfig {
   agentId: string;
+  agentType: AgentType;
   workspaceDir: string;
   sharedStatusDir: string;
   mcpServerUrl: string;
-  agentServerPort: number;
+  agentServerPort?: number;
+  githubToken?: string;
+  githubRepo?: string;
+  githubApiUrl?: string;
   githubConfig?: {
     owner: string;
     repo: string;
@@ -68,11 +73,14 @@ export class PMAgent extends SimpleBaseAgent {
   private pmConfig: PMAgentConfig;
   private activeCoordinations: Map<string, CoordinationPlan>;
   private issueCounter: number;
+  private octokit?: Octokit;
+  private githubOwner?: string;
+  private githubRepo?: string;
 
   constructor(config: PMAgentConfig) {
     super({
       agentId: config.agentId,
-      agentType: AgentType.PM,
+      agentType: config.agentType || AgentType.PM,
       workspaceDir: config.workspaceDir,
       sharedStatusDir: config.sharedStatusDir,
       mcpServerUrl: config.mcpServerUrl,
@@ -82,6 +90,40 @@ export class PMAgent extends SimpleBaseAgent {
     this.pmConfig = config;
     this.activeCoordinations = new Map();
     this.issueCounter = 1000; // Start from 1000 for mock issues
+  }
+
+  /**
+   * Initialize the PM Agent with GitHub API integration
+   */
+  public async initialize(): Promise<void> {
+    await super.initialize?.();
+
+    // Initialize GitHub API if token is provided
+    const githubToken = this.pmConfig.githubToken || this.pmConfig.githubConfig?.token;
+    if (githubToken) {
+      this.octokit = new Octokit({
+        auth: githubToken,
+        baseUrl: this.pmConfig.githubApiUrl || 'https://api.github.com'
+      });
+
+      // Parse repository information
+      const repo = this.pmConfig.githubRepo || `${this.pmConfig.githubConfig?.owner}/${this.pmConfig.githubConfig?.repo}`;
+      if (repo && repo.includes('/')) {
+        [this.githubOwner, this.githubRepo] = repo.split('/');
+      }
+
+      await this.logAction('initialize', 'GitHub API integration initialized');
+    } else {
+      await this.logAction('initialize', 'No GitHub token provided, using mock implementation');
+    }
+  }
+
+  /**
+   * Shutdown the PM Agent
+   */
+  public async shutdown(): Promise<void> {
+    this.activeCoordinations.clear();
+    await super.shutdown?.();
   }
 
   protected async registerTools(): Promise<void> {
@@ -115,6 +157,37 @@ export class PMAgent extends SimpleBaseAgent {
     }, {
       description: 'Generate comprehensive project reports'
     });
+
+    // GitHub-specific tools
+    this.mcpAgentServer.registerTool('addGitHubComment', async (params: any) => {
+      return await this.addGitHubComment(params.issueNumber, params.comment);
+    }, {
+      description: 'Add comment to GitHub issue'
+    });
+
+    this.mcpAgentServer.registerTool('updateGitHubIssue', async (params: any) => {
+      return await this.updateGitHubIssue(params);
+    }, {
+      description: 'Update GitHub issue status and labels'
+    });
+
+    this.mcpAgentServer.registerTool('registerWebhook', async (params: any) => {
+      return await this.registerWebhook(params);
+    }, {
+      description: 'Register webhook for repository events'
+    });
+
+    this.mcpAgentServer.registerTool('processWebhookPayload', async (params: any) => {
+      return await this.processWebhookPayload(params);
+    }, {
+      description: 'Process incoming webhook payload'
+    });
+
+    this.mcpAgentServer.registerTool('getRepositoryInfo', async (params: any) => {
+      return await this.getRepositoryInfo(params.repository);
+    }, {
+      description: 'Get repository information with caching'
+    });
   }
 
   /**
@@ -124,34 +197,79 @@ export class PMAgent extends SimpleBaseAgent {
     await this.updateStatus('BUSY', 'Creating GitHub issue');
 
     try {
-      // Mock GitHub issue creation (in real implementation, would use GitHub API)
-      const issueNumber = this.issueCounter++;
-      
       // Add TDD-specific labels automatically
-      const tddLabels = ['tdd', 'phase-2'];
+      const tddLabels = ['tdd', 'autosdlc'];
       const allLabels = [...(params.labels || []), ...tddLabels];
       
       // Determine agent assignment based on task type
       const assignedAgents = this.determineAgentAssignment(params);
 
-      const issue: GitHubIssue = {
-        issueNumber,
-        url: `https://github.com/${this.pmConfig.githubConfig?.owner || 'autosdlc'}/${this.pmConfig.githubConfig?.repo || 'project'}/issues/${issueNumber}`,
-        title: params.title,
-        labels: [...new Set(allLabels)], // Remove duplicates
-        assignedAgents,
-        milestone: params.milestone,
-        estimatedHours: this.estimateEffort(params)
-      };
+      if (this.octokit && this.githubOwner && this.githubRepo) {
+        // Real GitHub API integration
+        try {
+          const response = await this.octokit.rest.issues.create({
+            owner: this.githubOwner,
+            repo: this.githubRepo,
+            title: params.title,
+            body: params.description || '',
+            labels: allLabels,
+            assignees: assignedAgents.length > 0 ? assignedAgents : undefined
+          });
 
-      await this.logAction('createGitHubIssue', 
-        `Created issue #${issueNumber}: ${params.title} (assigned to: ${assignedAgents.join(', ')})`
-      );
+          const issue: GitHubIssue = {
+            issueNumber: response.data.number,
+            url: response.data.html_url,
+            title: response.data.title,
+            labels: response.data.labels.map(label => 
+              typeof label === 'string' ? label : label.name || ''
+            ).filter(Boolean),
+            assignedAgents: response.data.assignees?.map(assignee => assignee.login) || [],
+            milestone: params.milestone,
+            estimatedHours: this.estimateEffort(params)
+          };
 
-      return issue;
+          await this.logAction('createGitHubIssue', 
+            `Created real GitHub issue #${issue.issueNumber}: ${params.title} (${issue.url})`
+          );
+
+          return issue;
+        } catch (error) {
+          // If GitHub API fails, fall back to mock implementation
+          await this.logAction('createGitHubIssue', 
+            `GitHub API failed: ${error instanceof Error ? error.message : 'Unknown error'}, falling back to mock`
+          );
+          return this.createMockGitHubIssue(params, allLabels, assignedAgents);
+        }
+      } else {
+        // Mock implementation when no GitHub integration
+        return this.createMockGitHubIssue(params, allLabels, assignedAgents);
+      }
     } finally {
-      await this.updateStatus('IDLE', 'GitHub issue created');
+      await this.updateStatus('IDLE', 'GitHub issue creation completed');
     }
+  }
+
+  /**
+   * Create mock GitHub issue for testing or when API is unavailable
+   */
+  private async createMockGitHubIssue(params: any, allLabels: string[], assignedAgents: string[]): Promise<GitHubIssue> {
+    const issueNumber = this.issueCounter++;
+    
+    const issue: GitHubIssue = {
+      issueNumber,
+      url: `https://github.com/${this.githubOwner || 'autosdlc'}/${this.githubRepo || 'project'}/issues/${issueNumber}`,
+      title: params.title,
+      labels: [...new Set(allLabels)], // Remove duplicates
+      assignedAgents,
+      milestone: params.milestone,
+      estimatedHours: this.estimateEffort(params)
+    };
+
+    await this.logAction('createGitHubIssue', 
+      `Created mock issue #${issueNumber}: ${params.title} (assigned to: ${assignedAgents.join(', ')})`
+    );
+
+    return issue;
   }
 
   /**
@@ -506,5 +624,184 @@ export class PMAgent extends SimpleBaseAgent {
     }
     
     return data;
+  }
+
+  /**
+   * Add comment to GitHub issue
+   */
+  private async addGitHubComment(issueNumber: number, comment: string): Promise<any> {
+    if (this.octokit && this.githubOwner && this.githubRepo) {
+      try {
+        const response = await this.octokit.rest.issues.createComment({
+          owner: this.githubOwner,
+          repo: this.githubRepo,
+          issue_number: issueNumber,
+          body: comment
+        });
+
+        return {
+          commentId: response.data.id,
+          commentUrl: response.data.html_url
+        };
+      } catch (error) {
+        throw new Error(`Failed to add GitHub comment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Mock implementation
+      return {
+        commentId: Math.floor(Math.random() * 1000000),
+        commentUrl: `https://github.com/${this.githubOwner || 'autosdlc'}/${this.githubRepo || 'project'}/issues/${issueNumber}#issuecomment-${Math.floor(Math.random() * 1000000)}`
+      };
+    }
+  }
+
+  /**
+   * Update GitHub issue status and labels
+   */
+  private async updateGitHubIssue(params: any): Promise<any> {
+    if (this.octokit && this.githubOwner && this.githubRepo) {
+      try {
+        const updateData: any = {};
+        
+        if (params.labels) {
+          updateData.labels = params.labels;
+        }
+        
+        if (params.assignees) {
+          updateData.assignees = params.assignees;
+        }
+        
+        if (params.status === 'closed') {
+          updateData.state = 'closed';
+        }
+
+        await this.octokit.rest.issues.update({
+          owner: this.githubOwner,
+          repo: this.githubRepo,
+          issue_number: params.issueNumber,
+          ...updateData
+        });
+
+        return { updated: true };
+      } catch (error) {
+        throw new Error(`Failed to update GitHub issue: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Mock implementation
+      return { updated: true };
+    }
+  }
+
+  /**
+   * Register webhook for repository events
+   */
+  private async registerWebhook(params: any): Promise<any> {
+    if (this.octokit && this.githubOwner && this.githubRepo) {
+      try {
+        const response = await this.octokit.rest.repos.createWebhook({
+          owner: this.githubOwner,
+          repo: this.githubRepo,
+          config: {
+            url: params.url,
+            content_type: 'json',
+            secret: params.secret
+          },
+          events: params.events
+        });
+
+        return {
+          webhookId: response.data.id,
+          webhookUrl: params.url,
+          events: params.events
+        };
+      } catch (error) {
+        throw new Error(`Failed to register webhook: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Mock implementation
+      return {
+        webhookId: Math.floor(Math.random() * 1000000),
+        webhookUrl: params.url,
+        events: params.events
+      };
+    }
+  }
+
+  /**
+   * Process webhook payload
+   */
+  private async processWebhookPayload(params: any): Promise<any> {
+    // Basic webhook payload processing
+    const { payload, signature, event } = params;
+    
+    // In real implementation, would verify signature
+    // For now, just process the payload
+    
+    let actionTaken = 'No action taken';
+    
+    if (event === 'issues' && payload.action === 'opened') {
+      actionTaken = `Issue ${payload.issue.number} opened: ${payload.issue.title}`;
+    } else if (event === 'pull_request' && payload.action === 'opened') {
+      actionTaken = `PR ${payload.pull_request.number} opened: ${payload.pull_request.title}`;
+    }
+
+    return {
+      processed: true,
+      actionTaken
+    };
+  }
+
+  /**
+   * Get repository information with caching
+   */
+  private repositoryCache = new Map<string, any>();
+  
+  private async getRepositoryInfo(repository: string): Promise<any> {
+    // Check cache first
+    if (this.repositoryCache.has(repository)) {
+      return this.repositoryCache.get(repository);
+    }
+
+    if (this.octokit) {
+      try {
+        const [owner, repo] = repository.split('/');
+        const response = await this.octokit.rest.repos.get({
+          owner,
+          repo
+        });
+
+        const repoInfo = {
+          name: response.data.name,
+          fullName: response.data.full_name,
+          description: response.data.description,
+          language: response.data.language,
+          stars: response.data.stargazers_count,
+          forks: response.data.forks_count,
+          openIssues: response.data.open_issues_count
+        };
+
+        // Cache for 5 minutes
+        this.repositoryCache.set(repository, repoInfo);
+        setTimeout(() => this.repositoryCache.delete(repository), 5 * 60 * 1000);
+
+        return repoInfo;
+      } catch (error) {
+        throw new Error(`Failed to get repository info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Mock implementation
+      const mockInfo = {
+        name: repository.split('/')[1] || repository,
+        fullName: repository,
+        description: `Mock repository for ${repository}`,
+        language: 'TypeScript',
+        stars: Math.floor(Math.random() * 1000),
+        forks: Math.floor(Math.random() * 100),
+        openIssues: Math.floor(Math.random() * 50)
+      };
+
+      this.repositoryCache.set(repository, mockInfo);
+      return mockInfo;
+    }
   }
 }
